@@ -31,7 +31,7 @@ sudo apt install ros-humble-desktop \
 ```bash
 mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src
-git clone <DEPO_URL> up_week1
+git clone git@github.com:idilsincer/ros2-gazebo-fortress-up-test-world.git up_week1
 cd ~/ros2_ws
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install
