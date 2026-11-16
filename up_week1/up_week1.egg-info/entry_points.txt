@@ -1,5 +1,0 @@
-[console_scripts]
-camera_monitor = up_week1.camera_monitor:main
-heartbeat_publisher = up_week1.heartbeat_publisher:main
-heartbeat_subscriber = up_week1.heartbeat_subscriber:main
-
