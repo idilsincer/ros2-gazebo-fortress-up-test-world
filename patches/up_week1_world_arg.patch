@@ -1,0 +1,38 @@
+diff --git a/launch/week1.launch.py b/launch/week1.launch.py
+index 4011b84..b30daaa 100644
+--- a/launch/week1.launch.py
++++ b/launch/week1.launch.py
+@@ -1,13 +1,23 @@
+ import os
+ from ament_index_python.packages import get_package_share_directory
+ from launch import LaunchDescription
+-from launch.actions import ExecuteProcess
++from launch.actions import DeclareLaunchArgument, ExecuteProcess
++from launch.substitutions import LaunchConfiguration
+ from launch_ros.actions import Node
+ 
+ 
+ def generate_launch_description():
+     share = get_package_share_directory('up_week1')
+-    world = os.path.join(share, 'worlds', 'test_world.sdf')
++    default_world = os.path.join(share, 'worlds', 'test_world.sdf')
++
++    # Optional argument so that the week-2 launch file can include this
++    # launch file instead of copying it, while loading its own world.
++    world = LaunchConfiguration('world')
++    declare_world = DeclareLaunchArgument(
++        'world',
++        default_value=default_world,
++        description='Path of the Gazebo world to load',
++    )
+ 
+     gazebo = ExecuteProcess(cmd=['ign', 'gazebo', '-r', world], output='screen')
+ 
+@@ -23,6 +33,7 @@ def generate_launch_description():
+ 
+     sim_time = {'use_sim_time': True}
+     return LaunchDescription([
++        declare_world,
+         gazebo,
+         bridge,
+         Node(package='up_week1', executable='camera_monitor', output='screen'),

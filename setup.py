@@ -2,7 +2,7 @@ import os
 from glob import glob
 from setuptools import setup
 
-package_name = 'up_week1'
+package_name = 'up_week2'
 
 setup(
     name=package_name,
@@ -13,14 +13,17 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
         (os.path.join('share', package_name, 'worlds'), glob('worlds/*.sdf')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     entry_points={
         'console_scripts': [
-            'heartbeat_publisher = up_week1.heartbeat_publisher:main',
-            'heartbeat_subscriber = up_week1.heartbeat_subscriber:main',
-            'camera_monitor = up_week1.camera_monitor:main',
+            'heartbeat_publisher = up_week2.heartbeat_publisher:main',
+            'heartbeat_subscriber = up_week2.heartbeat_subscriber:main',
+            'camera_monitor = up_week2.camera_monitor:main',
+            'target_mover = up_week2.target_mover:main',
+            'red_target_detector = up_week2.red_target_detector:main',
         ],
     },
 )
