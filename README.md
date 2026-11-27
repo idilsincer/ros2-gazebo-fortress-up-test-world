@@ -16,7 +16,7 @@ iki aydınlatma kipi ve başarım ölçüm aracı eklenmiştir.
 | İşletim sistemi | Ubuntu 22.04 LTS |
 | ROS 2 | Humble Hawksbill |
 | Simülasyon | Gazebo Fortress (`ign gazebo`) |
-| Dil | Python 3.10, `ament_python` |
+| Dil | Python 3.10 |
 | Görüntü işleme | OpenCV (`python3-opencv`) + NumPy |
 | Köprü | `ros_ign_bridge` / `ros_gz_bridge` (ikisi de otomatik algılanır) |
 
@@ -34,7 +34,7 @@ sudo apt install -y \
 > kodu ve `target_mover` her iki adlandırmayı da destekler; README'de
 > `ros_ign_*` yazılmıştır.
 
-`up_week1` bu paketin çalışma zamanı bağımlılığıdır (`package.xml` içinde
+`up_week1` bu paketin runtime dedpendency'idir. (`package.xml` içinde
 tanımlıdır). Derlemeden önce `~/ros2_ws/src` altında bulunmalıdır.
 
 ### up_week1 launch dosyası hakkında (önemli)
@@ -48,15 +48,15 @@ argüman eklendi:
 world:=<gazebo dünya dosyası>     (varsayılan: up_week1/worlds/test_world.sdf)
 ```
 
-Yama dosyası: [`patches/up_week1_world_arg.patch`](patches/up_week1_world_arg.patch)
+Patch dosyası: [`patches/up_week1_world_arg.patch`](patches/up_week1_world_arg.patch)
 
 ```bash
 cd ~/ros2_ws/src/up_week1
 git apply /path/to/up_week2/patches/up_week1_world_arg.patch
 ```
 
-`week2.launch.py` yamayı otomatik algılar. Yamalanmamış bir `up_week1`
-bulursa hafta-1 launch dosyasını kopyalamadan, hafta-1 **executable**'larını
+`week2.launch.py` patch'i otomatik algılar. Yamalanmamış bir `up_week1`
+bulursa week1 launch dosyasını kopyalamadan, week1 **executable**'larını
 doğrudan başlatır ve week-2 dünyasını yükler. Yani iki durumda da tek launch
 dosyası yeterlidir.
 
@@ -71,7 +71,7 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-Tek komutla her şey (dünya + kamera köprüsü + hafta-1 düğümleri +
+Tek komutla her şey (dünya + kamera köprüsü + week-1 + nodelar
 `target_mover` + `red_target_detector`):
 
 ```bash
@@ -131,9 +131,9 @@ up_week2/
 │   ├── detector.yaml               # normal aydınlatma parametreleri
 │   └── detector_dim.yaml           # loş aydınlatma parametreleri
 ├── up_week2/
-│   ├── heartbeat_publisher.py      # hafta-1 yedeği (launch up_week1'i kullanır)
-│   ├── heartbeat_subscriber.py     # hafta-1 yedeği
-│   ├── camera_monitor.py           # hafta-1 yedeği
+│   ├── heartbeat_publisher.py      # week1 yedeği (launch up_week1'i kullanır)
+│   ├── heartbeat_subscriber.py     # week1 yedeği
+│   ├── camera_monitor.py           # week1 yedeği
 │   ├── target_mover.py             # hedefi yol üzerinde hareket ettirir
 │   ├── red_target_detector.py      # klasik CV tespit düğümü
 │   ├── evaluate_detection.py       # başarım ölçüm aracı
@@ -152,16 +152,16 @@ Dünya adı: **`up_test_world`**.
 
 | Nesne | Konum / açıklama |
 |---|---|
-| `ground_plane` | 12 × 12 m zemin (ister: en az 8 × 8 m) |
-| `occluder_box` | (0, −0.6, 0.8), 1.2 × 0.3 × 1.6 m; kamera ile hedef yolu arasında |
-| `red_target` | Kırmızı kutu (0.4 × 0.4 × 1.0 m); başlangıç (−1.2, −1.5, 0.5) |
-| `decoy_green` | Belirgin farklı renk (yeşil), (2.0, 1.4, 0.5) |
-| `decoy_burgundy` | Kırmızıya yakın renk (bordo), (−1.8, −0.3, 0.5) |
+| `ground` | 12 × 12 m zemin (ister: en az 8 × 8 m) |
+| `box` | (0, −0.6, 0.8), 1.2 × 0.3 × 1.6 m; kamera ile hedef yolu arasında |
+| `red_capsule` | Kırmızı kutu (0.4 × 0.4 × 1.0 m); başlangıç (−1.2, −1.5, 0.5) |
+| `green_capsule` | Belirgin farklı renk (yeşil), (2.0, 1.4, 0.5) |
+| `burgundy_capsule` | Kırmızıya yakın renk (bordo), (−1.8, −0.3, 0.5) |
 | `Camera` | Sabit, (0, −5.0, 1.8), yaw 90° (+y), pitch 20° aşağı; 640×480, HFOV 60°, 10 Hz |
 
 - Kameranın görüş alanında aynı anda yalnızca bir gerçek hedef vardır.
 - Hedefin ve çeldiricilerin görsel + çarpışma geometrileri vardır, isimleri benzersizdir.
-- `red_target` çalışma zamanında `/world/up_test_world/set_pose` ile taşınır.
+- `red_capule` çalışma zamanında `/world/up_test_world/set_pose` ile taşınır.
   Gazebo `set_pose` servisi statik modelleri taşımadığı için hedef dinamiktir;
   düz tabanlı kutu geometrisi, 30 Hz konum güncellemeleri arasında devrilmeden
   dengede kalmasını sağlar.
@@ -202,17 +202,16 @@ Bu iki topic ödev çıktısı değil, **değerlendirme referansıdır**.
 
 | Düğüm | Görev | Topic | Mesaj tipi | Yön |
 |---|---|---|---|---|
-| `heartbeat_publisher` (up_week1) | Saniyede bir heartbeat | `/up/heartbeat` | `std_msgs/msg/String` | yayın |
-| `heartbeat_subscriber` (up_week1) | Heartbeat dinler | `/up/heartbeat` | `std_msgs/msg/String` | abone |
-| `camera_monitor` (up_week1) | Kamera akışını izler | `/camera/image_raw` | `sensor_msgs/msg/Image` | abone |
+| `heartbeat_publisher` (up_week1) | Saniyede bir heartbeat | `/up/heartbeat` | `std_msgs/msg/String` | broadcast |
+| `heartbeat_subscriber` (up_week1) | Heartbeat dinler | `/up/heartbeat` | `std_msgs/msg/String` | listener |
+| `camera_monitor` (up_week1) | Kamera akışını izler | `/camera/image_raw` | `sensor_msgs/msg/Image` | listener |
 | `parameter_bridge` | Kamera, saat, camera_info ve set_pose köprüsü | `/camera/image_raw`, `/camera/camera_info`, `/clock`, `/world/up_test_world/set_pose` | Image, CameraInfo, Clock, `ros_ign_interfaces/srv/SetEntityPose` | köprü |
-| `target_mover` | Hedefi yol üzerinde taşır + ground truth | `/world/up_test_world/set_pose`, `/target/ground_truth`, `/target/visibility` | SetEntityPose (istemci), PoseStamped, String | çağrı/yayın |
-| `red_target_detector` | Kırmızı hedefi tespit eder | `/camera/image_raw` | `sensor_msgs/msg/Image` | abone |
-| | | `/vision/detections` | `vision_msgs/msg/Detection2DArray` | yayın |
-| | | `/vision/target_detected` | `std_msgs/msg/Bool` | yayın |
-| | | `/vision/target_offset` | `geometry_msgs/msg/PointStamped` | yayın |
-| | | `/vision/debug_image` | `sensor_msgs/msg/Image` | yayın |
-| `evaluate_detection` | Başarım ölçer | `/vision/detections`, `/target/ground_truth`, `/target/visibility` | — | abone |
+| `target_mover` | Hedefi yol üzerinde taşır + ground truth | `/world/up_test_world/set_pose`, `/target/ground_truth`, `/target/visibility` | SetEntityPose (istemci), PoseStamped, String | çağrı/broadcast |
+| `red_target_detector` | Kırmızı hedefi tespit eder | `/camera/image_raw` | `sensor_msgs/msg/Image` | listener |
+| | | `/vision/detections` | `vision_msgs/msg/Detection2DArray` | broadcast |
+| | | `/vision/target_detected` | `std_msgs/msg/Bool` | broadcast |
+| | | `/vision/target_offset` | `geometry_msgs/msg/PointStamped` | broadcast |
+| | | `/vision/debug_image` | `sensor_msgs/msg/Image` | broadcast |
 
 ### Çıktı sözleşmeleri
 
@@ -233,11 +232,11 @@ Bu iki topic ödev çıktısı değil, **değerlendirme referansıdır**.
 
 | Topic | QoS |
 |---|---|
-| `/camera/image_raw` aboneliği | **BEST_EFFORT**, KEEP_LAST, depth **1**, VOLATILE (`qos_profile_sensor_data` benzeri) |
+| `/camera/image_raw` listener | **BEST_EFFORT**, KEEP_LAST, depth **1**, VOLATILE (`qos_profile_sensor_data` benzeri) |
 | `/vision/debug_image` | BEST_EFFORT, KEEP_LAST, depth 1 |
 | `/vision/detections`, `/vision/target_detected`, `/vision/target_offset` | RELIABLE, KEEP_LAST, depth 10 |
 
-Kamera aboneliğinde depth 1 + best effort seçilmesi, işleme yetişmediğinde
+Kamera listener durumunda depth 1 + best effort seçilmesi, işleme yetişmediğinde
 eski karelerin kuyrukta birikmesini ve gecikme oluşmasını engeller.
 
 ---
@@ -288,7 +287,6 @@ geçersiz değerler `add_on_set_parameters_callback` tarafından **reddedilir**.
 | `stream_timeout` | Akış kesinti eşiği (s) | 1.0 | 1.0 | > 0 |
 | `stats_period` | Terminal istatistik periyodu (s) | 1.0 | 1.0 | > 0 |
 
-Örnek canlı değişiklik:
 
 ```bash
 # Daha küçük lekeleri de kabul et
@@ -349,47 +347,9 @@ ros2 run up_week2 evaluate_detection --ros-args \
 
 Araç bitince terminale özet basar, `PASS/FAIL` yazar ve kare bazlı CSV üretir.
 
-### Ölçüm sonuçları (VM'de doldurulacak)
-
-| Aydınlatma | Kare | Tespit oranı | Yanlış tespit | Ort. merkez hatası | Sonuç |
-|---|---|---|---|---|---|
-| normal |  |  |  |  |  |
-| dim |  |  |  |  |  |
-
-> Bu tablo, kodu yazdığım makinede ROS/Gazebo olmadığı için boş bırakılmıştır.
-> Kullanıcı VM'de iki komutu çalıştırıp çıktıları buraya ve rapora işlemelidir.
-
 ---
 
-## 9. Doğrulama senaryoları (demo videosu için)
-
-1. `ros2 launch up_week2 week2.launch.py` — tek launch ile sahne + tüm düğümler.
-2. `rqt_image_view /vision/debug_image` — hedefin kutu ve merkezle izlenmesi.
-3. `ros2 topic echo /vision/target_offset` — hedef sağa/sola/yukarı/aşağı
-   giderken x/y'nin işaret değiştirmesi; `target_detected`'ın false→true.
-4. Kapanma fazında (yolun 15–23 s aralığı) debug görüntüsünde hedefin
-   kaybolması, `target_detected=false`, `detections` boş.
-5. Görüş alanı dışı (26–30 s) ve yeniden giriş.
-6. `ros2 param set /red_target_detector min_area 5000.0` — tespitin kaybolması;
-   geri `250.0` — düzelmesi. Geçersiz `-5.0` değerinin reddi.
-7. Kamera akışını kesme: ayrı terminalde köprü sürecini durdurup yaklaşık
-   1 s sonra `/vision/target_detected`'ın false olduğunu, ardından köprüyü
-   tekrar başlatınca tespitin kendiliğinden döndüğünü gösterin:
-
-   ```bash
-   pkill -f "parameter_bridge.*camera/image_raw"
-   # 1-2 s bekleyin: ros2 topic echo /vision/target_detected  -> false
-   ros2 run ros_ign_bridge parameter_bridge \
-     '/camera/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image'
-   ```
-8. `lighting:=dim` ile aynı tespitin çalışması.
-9. Hafta-1 heartbeat ve camera_monitor loglarının hâlâ akması.
-10. Çeldirici testi: hedef engel arkasındayken (yalnızca yeşil + bordo
-    görünürken) `/vision/detections` boş kalmalı.
-
----
-
-## 10. Yeniden üretilebilirlik
+## 9. Yeniden üretilebilirlik
 
 - Tüm dosya yolları paketin kurulu `share` dizininden veya `$HOME`'dan
   türetilir; kullanıcıya özgü sabit yol yoktur.
@@ -401,7 +361,7 @@ Araç bitince terminale özet basar, `PASS/FAIL` yazar ve kare bazlı CSV üreti
 
 ---
 
-## 11. Bilinen sınırlamalar
+## 10. Bilinen sınırlamalar
 
 - `target_mover` hedefi `set_pose` ile ışınlar (teleport). 30 Hz'de küçük
   adımlarla yapıldığı için görüntüde akıcı görünür; fiziksel bir hız
@@ -417,7 +377,7 @@ Araç bitince terminale özet basar, `PASS/FAIL` yazar ve kare bazlı CSV üreti
 
 ---
 
-## 12. Dış kaynaklar ve yapay zekâ desteği
+## 11. Dış kaynaklar ve yapay zekâ desteği
 
 - ROS 2 Humble ve Gazebo Fortress resmî dokümantasyonu.
 - `vision_msgs/Detection2DArray` mesaj tanımı.
