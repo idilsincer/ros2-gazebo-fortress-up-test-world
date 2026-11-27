@@ -21,12 +21,17 @@ def rpy_matrix(roll, pitch, yaw):
 
 
 def camera_intrinsics(width, height, hfov):
+    """Pinhole intrinsics derived from the horizontal field of view."""
     fx = (float(width) * 0.5) / math.tan(float(hfov) * 0.5)
     fy = fx  # square pixels
     return fx, fy, float(width) * 0.5, float(height) * 0.5
 
 
 def project_point(point, camera_position, camera_rpy, width, height, hfov):
+    """Project a world point into pixel coordinates.
+
+    Returns ``(u, v, depth)`` or ``None`` when the point is behind the camera.
+    """
     rot = rpy_matrix(*camera_rpy)
     delta = np.asarray(point, dtype=float) - np.asarray(camera_position,
                                                         dtype=float)
@@ -42,6 +47,11 @@ def project_point(point, camera_position, camera_rpy, width, height, hfov):
 
 
 def segment_hits_box(start, end, box_center, box_size, inflate=0.0):
+    """True when the segment ``start -> end`` crosses an axis-aligned box.
+
+    Slab method.  ``t`` is restricted to the open segment so that a target
+    sitting exactly on the box surface is not treated as occluded.
+    """
     start = np.asarray(start, dtype=float)
     end = np.asarray(end, dtype=float)
     center = np.asarray(box_center, dtype=float)
@@ -69,12 +79,23 @@ def segment_hits_box(start, end, box_center, box_size, inflate=0.0):
 
 def target_visibility(target_center, camera_position, camera_rpy,
                       width, height, hfov, obstacle_center, obstacle_size,
-                      target_radius=0.2, target_height=1.0, margin=2.0):
+                      target_radius=0.2, target_height=1.0, margin=8.0):
+    """Classify how much of the target is visible from the camera.
+
+    The target is approximated by a 3x3 grid of points on its silhouette
+    (box of ``target_radius`` and ``target_height``).  A sample is
+    visible when it projects inside the image and the camera ray is not
+    blocked by the obstacle box.
+
+    Returns one of ``"full"``, ``"partial"``, ``"hidden"`` or
+    ``"out_of_view"``.
+    """
     target_center = np.asarray(target_center, dtype=float)
     samples = []
     for dz in (-0.45 * target_height, 0.0, 0.45 * target_height):
         for dx in (-0.9 * target_radius, 0.0, 0.9 * target_radius):
-            samples.append(target_center + np.array([dx, 0.0, dz]))
+            for dy in (-0.9 * target_radius, 0.0, 0.9 * target_radius):
+                samples.append(target_center + np.array([dx, dy, dz]))
 
     inside = 0
     visible = 0

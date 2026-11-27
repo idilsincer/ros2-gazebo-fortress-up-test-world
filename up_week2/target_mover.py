@@ -12,6 +12,7 @@ from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from std_msgs.msg import String
+from tf2_msgs.msg import TFMessage
 
 from up_week2.scene_geometry import target_visibility
 
@@ -36,14 +37,17 @@ class TargetMover(Node):
         self.declare_parameter('enable_cli_fallback', True)
         self.declare_parameter('service_wait_timeout', 5.0)
         self.declare_parameter('cli_rate_hz', 5.0)
-
-        self.declare_parameter('camera_position', [0.0, -5.0, 1.8])
-        self.declare_parameter('camera_rpy', [0.0, 0.35, 1.5708])
+        self.declare_parameter('use_gazebo_pose', True)
+        self.declare_parameter('pose_info_topic',
+                               '/world/up_test_world/pose/info')
+        self.declare_parameter('pose_timeout', 0.75)
+        self.declare_parameter('camera_position', [0.9, -4.5, 1.5])
+        self.declare_parameter('camera_rpy', [0.0, 0.265, 1.305])
         self.declare_parameter('camera_width', 640)
         self.declare_parameter('camera_height', 480)
         self.declare_parameter('camera_hfov', 1.047)
-        self.declare_parameter('obstacle_center', [0.0, -0.6, 0.8])
-        self.declare_parameter('obstacle_size', [1.2, 0.3, 1.6])
+        self.declare_parameter('obstacle_center', [1.858, -0.298, 0.5])
+        self.declare_parameter('obstacle_size', [1.0, 1.0, 1.0])
 
         self.use_mover = bool(self.get_parameter('use_mover').value)
         self.entity_name = str(self.get_parameter('entity_name').value)
@@ -76,6 +80,20 @@ class TargetMover(Node):
         qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE)
         self.visibility_pub = self.create_publisher(String, '/target/visibility', qos)
 
+        self.use_gazebo_pose = bool(
+            self.get_parameter('use_gazebo_pose').value)
+        self.pose_timeout = float(self.get_parameter('pose_timeout').value)
+        self.actual_pose = None          # (x, y, z, stamp_msg)
+        self.actual_pose_wall = None
+        self.actual_pose_warned = False
+        if self.use_gazebo_pose:
+            pose_topic = str(self.get_parameter('pose_info_topic').value)
+            self.create_subscription(TFMessage, pose_topic,
+                                     self.pose_info_callback, 10)
+            self.get_logger().info(
+                f'Ground truth: actual Gazebo pose from {pose_topic} '
+                f'(fallback: commanded pose)')
+
         self.cli_tool = None
         if self.enable_cli_fallback and self.use_mover:
             self.cli_tool = shutil.which('ign') or shutil.which('gz')
@@ -99,6 +117,27 @@ class TargetMover(Node):
             f'Loaded {len(self.waypoints)} waypoints from {path_file} '
             f'(loop={self.loop}, period={self.period:.1f} s)')
 
+    # ------------------------------------------------------- actual gz pose
+    def pose_info_callback(self, msg):
+        for transform in msg.transforms:
+            name = transform.child_frame_id or transform.header.frame_id
+            if self.entity_name in name:
+                self.actual_pose = (
+                    transform.transform.translation.x,
+                    transform.transform.translation.y,
+                    transform.transform.translation.z,
+                    transform.header.stamp,
+                )
+                self.actual_pose_wall = time.monotonic()
+                return
+
+    def _actual_pose_is_fresh(self):
+        return (self.actual_pose is not None
+                and self.actual_pose_wall is not None
+                and time.monotonic() - self.actual_pose_wall
+                <= self.pose_timeout)
+
+    # ------------------------------------------------------------------ path
     def _load_path(self, path_file):
         with open(path_file, 'r', encoding='utf-8') as handle:
             data = yaml.safe_load(handle)
@@ -153,6 +192,7 @@ class TargetMover(Node):
             previous = current
         return previous[1], previous[2], previous[3]
 
+    # --------------------------------------------------------------- driving
     def _send_pose_service(self, x, y, z):
         request = SetEntityPose.Request()
         request.entity.name = self.entity_name
@@ -194,6 +234,14 @@ class TargetMover(Node):
             self.get_logger().error(f'CLI fallback failed: {exc}')
 
     def _publish_ground_truth(self, x, y, z):
+        if self.use_gazebo_pose and self._actual_pose_is_fresh():
+            x, y, z, _ = self.actual_pose
+        elif (self.use_gazebo_pose and self.started
+                and not self.actual_pose_warned):
+            self.actual_pose_warned = True
+            self.get_logger().warning(
+                'No Gazebo pose received yet; publishing commanded pose '
+                'as ground truth.')
         stamp = self.get_clock().now().to_msg()
 
         message = PoseStamped()
@@ -219,6 +267,7 @@ class TargetMover(Node):
         label.data = visibility
         self.visibility_pub.publish(label)
 
+    # ------------------------------------------------------------------ timer
     def on_timer(self):
         if not self.use_mover:
             x, y, z = self.waypoints[0][1], self.waypoints[0][2], self.waypoints[0][3]

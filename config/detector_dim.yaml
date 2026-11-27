@@ -2,14 +2,14 @@ red_target_detector:
   ros__parameters:
     hsv_lower_h: 0
     hsv_upper_h: 8
-    hsv_lower_h2: 175
+    hsv_lower_h2: 177
     hsv_upper_h2: 180
-    min_saturation: 100
-    min_value: 35
-    min_area: 200.0
+    min_saturation: 70
+    min_value: 25
+    min_area: 100.0
     max_area_ratio: 0.5
-    confirm_frames: 3
-    lost_frames: 5
+    confirm_frames: 2
+    lost_frames: 3
     debug_image: true
     stream_timeout: 1.0
     stats_period: 1.0

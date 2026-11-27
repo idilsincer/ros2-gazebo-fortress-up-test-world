@@ -24,6 +24,7 @@ setup(
             'camera_monitor = up_week2.camera_monitor:main',
             'target_mover = up_week2.target_mover:main',
             'red_target_detector = up_week2.red_target_detector:main',
+            'evaluate_detection = up_week2.evaluate_detection:main',
         ],
     },
 )

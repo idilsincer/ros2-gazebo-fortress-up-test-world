@@ -31,14 +31,14 @@ class RedTargetDetector(Node):
         descriptor = ParameterDescriptor(description='red target detector')
         self.declare_parameter('hsv_lower_h', 0, descriptor)
         self.declare_parameter('hsv_upper_h', 8, descriptor)
-        self.declare_parameter('hsv_lower_h2', 175, descriptor)
+        self.declare_parameter('hsv_lower_h2', 177, descriptor)
         self.declare_parameter('hsv_upper_h2', 180, descriptor)
-        self.declare_parameter('min_saturation', 120, descriptor)
-        self.declare_parameter('min_value', 70, descriptor)
-        self.declare_parameter('min_area', 250.0, descriptor)
+        self.declare_parameter('min_saturation', 90, descriptor)
+        self.declare_parameter('min_value', 50, descriptor)
+        self.declare_parameter('min_area', 150.0, descriptor)
         self.declare_parameter('max_area_ratio', 0.5, descriptor)
-        self.declare_parameter('confirm_frames', 3, descriptor)
-        self.declare_parameter('lost_frames', 5, descriptor)
+        self.declare_parameter('confirm_frames', 2, descriptor)
+        self.declare_parameter('lost_frames', 3, descriptor)
         self.declare_parameter('debug_image', True, descriptor)
         self.declare_parameter('stream_timeout', 1.0, descriptor)
         self.declare_parameter('stats_period', 1.0, descriptor)
@@ -99,6 +99,7 @@ class RedTargetDetector(Node):
                values['min_area'], values['confirm_frames'],
                values['lost_frames']))
 
+    # ------------------------------------------------------------- parameters
     def _current_values(self):
         values = {}
         for name in self.INT_PARAMETERS:
@@ -151,7 +152,7 @@ class RedTargetDetector(Node):
                 'debug_image = %s' % values['debug_image'])
         return SetParametersResult(successful=True)
 
-    
+    # ------------------------------------------------------------ stream guard
     def check_stream(self):
         age = time.monotonic() - self.last_image_time
         timed_out = age > float(self.get_parameter('stream_timeout').value)
@@ -170,7 +171,7 @@ class RedTargetDetector(Node):
             self.stream_timed_out = False
             self.get_logger().info('Camera stream is back; resuming detection.')
 
-    
+    # ---------------------------------------------------------------- callbacks
     def image_callback(self, msg):
         started = time.perf_counter()
         self.last_image_time = time.monotonic()
@@ -196,7 +197,7 @@ class RedTargetDetector(Node):
                 throttle_duration_sec=2.0)
             return
 
-        
+        # Confirmation / loss hysteresis.
         if candidates:
             self.hit_count += 1
             self.miss_count = 0
@@ -230,7 +231,7 @@ class RedTargetDetector(Node):
         self.frame_counter += 1
         self._report_stats(msg, candidates)
 
-    
+    # -------------------------------------------------------------- conversion
     @staticmethod
     def _to_bgr(msg):
         encoding = (msg.encoding or '').lower()
@@ -266,7 +267,7 @@ class RedTargetDetector(Node):
         # Own a writable, contiguous array (np.frombuffer is read-only).
         return np.ascontiguousarray(image).copy()
 
-    
+    # ---------------------------------------------------------------- detection
     def _detect(self, bgr, msg):
         lower_h = int(self.get_parameter('hsv_lower_h').value)
         upper_h = int(self.get_parameter('hsv_upper_h').value)
@@ -315,7 +316,7 @@ class RedTargetDetector(Node):
         candidates.sort(key=lambda item: item['area'], reverse=True)
         return candidates
 
-    
+    # --------------------------------------------------------------- publishing
     def _publish_detected(self, detected):
         message = Bool()
         message.data = bool(detected)
@@ -387,7 +388,7 @@ class RedTargetDetector(Node):
         output.data = debug.tobytes()
         self.debug_pub.publish(output)
 
-    
+    # ------------------------------------------------------------------- stats
     def _report_stats(self, msg, candidates):
         now = self.get_clock().now()
         period = float(self.get_parameter('stats_period').value)

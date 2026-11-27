@@ -85,6 +85,9 @@ def _launch_setup(context):
     image_bridge = ('/camera/image_raw'
                     '@sensor_msgs/msg/Image[ignition.msgs.Image')
     clock_bridge = '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock'
+    # Actual Gazebo model poses (ground truth of the evaluation tool).
+    pose_info_bridge = (f'/world/{WORLD_NAME}/pose/info'
+                        '@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V')
 
     if week1_supports_world:
         simulation = [
@@ -126,6 +129,13 @@ def _launch_setup(context):
         output='screen',
     )
 
+    pose_bridge = Node(
+        package=bridge_package,
+        executable='parameter_bridge',
+        arguments=[pose_info_bridge],
+        output='screen',
+    )
+
     sim_time = {'use_sim_time': True}
 
     target_mover = Node(
@@ -138,6 +148,8 @@ def _launch_setup(context):
                 'path_file': os.path.join(share, 'config',
                                           'target_path.yaml'),
                 'set_pose_service': f'/world/{WORLD_NAME}/set_pose',
+                'use_gazebo_pose': True,
+                'pose_info_topic': f'/world/{WORLD_NAME}/pose/info',
             },
         ],
         output='screen',
@@ -150,7 +162,7 @@ def _launch_setup(context):
         output='screen',
     )
 
-    return simulation + [bridge, target_mover, detector]
+    return simulation + [bridge, pose_bridge, target_mover, detector]
 
 
 def generate_launch_description():
